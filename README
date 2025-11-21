@@ -1,4 +1,4 @@
-txt manipulates TREC data-sets.
+txt manipulates TREC data-sets. It tokenizes the corpus and queries in its own format, builds an inverted index out of the corpus which can then be searched querying it using the tokenized queries. The search results can then be ranked and evaluated.
 
 Tokenize the corpus and query:
 
