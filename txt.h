@@ -5,19 +5,20 @@
 #define LF 10
 #define BUFSIZE 10240
 #define MINTERMLEN 1
-#define MAXTERMLEN 59 /* Llanfairpwllgwyngyllgogerychwyrndrobwllllantysiliogogogoch */
-#define NHASH  4093
+#define MAXTERMLEN                                                             \
+  59 /* Llanfairpwllgwyngyllgogerychwyrndrobwllllantysiliogogogoch */
+#define NHASH 4093
 
 typedef struct Token Token;
 
-enum {KEEPCASE, LOWERCASE};
+enum { KEEPCASE, LOWERCASE };
 
-typedef enum {CTRLCHAR = 1, PRINTCHAR, SEPCHAR} E_asciitype;
+typedef enum { CTRLCHAR = 1, PRINTCHAR, SEPCHAR } E_asciitype;
 
 struct Token {
-	char *str;
-	uint32_t id;
-	uint32_t l;
+  char *str;
+  uint32_t id;
+  uint32_t l;
 };
 
 /* Token */

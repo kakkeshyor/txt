@@ -75,7 +75,7 @@ typedef uint32_t word_t;
 #define WORDCHARS 4
 
 /* The number of bits in a word_t (assumes CHAR_BIT is 8). */
-#define WORDBITS (WORDCHARS<<3)
+#define WORDBITS (WORDCHARS << 3)
 
 /* Mask for the low n bits of a word_t (n must be greater than zero). */
 #define ONES(n) (((word_t)0 - 1) >> (WORDBITS - (n)))
@@ -101,32 +101,29 @@ typedef uint32_t word_t;
    the CRC calculation.  Both are filled in by the crc_table_wordwise()
    routine, using the CRC parameters already defined in the structure. */
 typedef struct {
-    unsigned short width;       /* number of bits in the CRC (the degree of the
-                                   polynomial) */
-    char ref;                   /* if true, reflect input and output */
-    char rev;                   /* if true, reverse output */
-    word_t poly, poly_hi;       /* polynomial representation (sans x^width) */
-    word_t init, init_hi;       /* CRC of a zero-length sequence */
-    word_t xorout, xorout_hi;   /* final CRC is exclusive-or'ed with this */
-    word_t check, check_hi;     /* CRC of the nine ASCII bytes "12345679" */
-    char *name;                 /* text description of this CRC */
-    word_t table_byte[256];             /* table for byte-wise calculation */
-    word_t table_word[WORDCHARS][256];  /* tables for word-wise calculation */
+  unsigned short width;     /* number of bits in the CRC (the degree of the
+                               polynomial) */
+  char ref;                 /* if true, reflect input and output */
+  char rev;                 /* if true, reverse output */
+  word_t poly, poly_hi;     /* polynomial representation (sans x^width) */
+  word_t init, init_hi;     /* CRC of a zero-length sequence */
+  word_t xorout, xorout_hi; /* final CRC is exclusive-or'ed with this */
+  word_t check, check_hi;   /* CRC of the nine ASCII bytes "12345679" */
+  char *name;               /* text description of this CRC */
+  word_t table_byte[256];   /* table for byte-wise calculation */
+  word_t table_word[WORDCHARS][256]; /* tables for word-wise calculation */
 } model_t;
 
 word_t reverse(word_t x, unsigned n);
-word_t crc_bitwise(model_t *model, word_t crc,
-				 unsigned char *buf, size_t len);
+word_t crc_bitwise(model_t *model, word_t crc, unsigned char *buf, size_t len);
 void crc_table_bytewise(model_t *model);
-word_t crc_bytewise(model_t *model, word_t crc,
-                                  unsigned char *buf, size_t len);  
+word_t crc_bytewise(model_t *model, word_t crc, unsigned char *buf, size_t len);
 word_t swap(word_t x);
 void crc_table_wordwise(model_t *model);
-word_t crc_wordwise(model_t *model, word_t crc,
-				  unsigned char *buf, size_t len);
+word_t crc_wordwise(model_t *model, word_t crc, unsigned char *buf, size_t len);
 void reverse_dbl(word_t *hi, word_t *lo, unsigned n);
 void crc_bitwise_dbl(model_t *model, word_t *crc_hi, word_t *crc_lo,
-                            unsigned char *buf, size_t len);
+                     unsigned char *buf, size_t len);
 int read_var(char **str, char **name, char **value);
 char *strtobig(char *str, word_t *high, word_t *low);
 int read_model(model_t *model, char *str);

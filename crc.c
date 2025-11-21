@@ -54,7 +54,7 @@
 /* Verify that the number of bits in a char is eight, using limits.h. */
 #include <limits.h>
 #if CHAR_BIT != 8
-#  error The number of bits in a char must be 8 for this code.
+#error The number of bits in a char must be 8 for this code.
 #endif
 
 #include "crc.h"
@@ -65,19 +65,18 @@
    reverse() is of no consequence since it is used at most twice per crc()
    call.  Even then, it is only used in the rare case that refin and refout are
    different. */
-word_t reverse(word_t x, unsigned n)
-{
-    word_t y;
+word_t reverse(word_t x, unsigned n) {
+  word_t y;
 
-    y = x & 1;
-    while (--n) {
-        x >>= 1;
-        if (x == 0)
-            return y << n;
-        y <<= 1;
-        y |= x & 1;
-    }
-    return y;
+  y = x & 1;
+  while (--n) {
+    x >>= 1;
+    if (x == 0)
+      return y << n;
+    y <<= 1;
+    y |= x & 1;
+  }
+  return y;
 }
 
 /* Run buf[0..len-1] through the CRC described in model.  If buf is NULL, then
@@ -99,79 +98,75 @@ word_t reverse(word_t x, unsigned n)
    The final value of crc is the CRC of the chunks in sequence.  The first call
    of crc_bitwise() gets the initial CRC value for this model.
  */
-word_t crc_bitwise(model_t *model, word_t crc,
-                                 unsigned char *buf, size_t len)
-{
-    word_t poly = model->poly;
+word_t crc_bitwise(model_t *model, word_t crc, unsigned char *buf, size_t len) {
+  word_t poly = model->poly;
 
-    /* if requested, return the initial CRC */
-    if (buf == NULL)
-        return model->init;
+  /* if requested, return the initial CRC */
+  if (buf == NULL)
+    return model->init;
 
-    /* pre-process the CRC */
+  /* pre-process the CRC */
+  crc &= ONES(model->width);
+  crc ^= model->xorout;
+  if (model->rev)
+    crc = reverse(crc, model->width);
+
+  /* process the input data a bit at a time */
+  if (model->ref) {
+    while (len--) {
+      crc ^= *buf++;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+      crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
+    }
+  } else if (model->width <= 8) {
+    unsigned shift;
+
+    shift = 8 - model->width; /* 0..7 */
+    poly <<= shift;
+    crc <<= shift;
+    while (len--) {
+      crc ^= *buf++;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
+    }
+    crc >>= shift;
     crc &= ONES(model->width);
-    crc ^= model->xorout;
-    if (model->rev)
-        crc = reverse(crc, model->width);
+  } else {
+    word_t mask;
+    unsigned shift;
 
-    /* process the input data a bit at a time */
-    if (model->ref) {
-        while (len--) {
-            crc ^= *buf++;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-            crc = crc & 1 ? (crc >> 1) ^ poly : crc >> 1;
-        }
+    mask  = (word_t)1 << (model->width - 1);
+    shift = model->width - 8; /* 1..WORDBITS-8 */
+    while (len--) {
+      crc ^= (word_t)(*buf++) << shift;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
+      crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
     }
-    else if (model->width <= 8) {
-        unsigned shift;
+    crc &= ONES(model->width);
+  }
 
-        shift = 8 - model->width;           /* 0..7 */
-        poly <<= shift;
-        crc <<= shift;
-        while (len--) {
-            crc ^= *buf++;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & 0x80 ? (crc << 1) ^ poly : crc << 1;
-        }
-        crc >>= shift;
-        crc &= ONES(model->width);
-    }
-    else {
-        word_t mask;
-        unsigned shift;
-
-        mask = (word_t)1 << (model->width - 1);
-        shift = model->width - 8;           /* 1..WORDBITS-8 */
-        while (len--) {
-            crc ^= (word_t)(*buf++) << shift;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-            crc = crc & mask ? (crc << 1) ^ poly : crc << 1;
-        }
-        crc &= ONES(model->width);
-    }
-
-    /* post-process and return the CRC */
-    if (model->rev)
-        crc = reverse(crc, model->width);
-    return crc ^ model->xorout;
+  /* post-process and return the CRC */
+  if (model->rev)
+    crc = reverse(crc, model->width);
+  return crc ^ model->xorout;
 }
 
 /* Fill in the 256-entry table in model with the CRC of the bytes 0..255, for a
@@ -180,67 +175,63 @@ word_t crc_bitwise(model_t *model, word_t crc,
    and the CRC width is less than 8, then the CRC is pre-shifted left to the
    high end of the low 8 bits so that the incoming byte can be exclusive-ored
    directly into a shifted CRC. */
-void crc_table_bytewise(model_t *model)
-{
-    unsigned char k;
-    word_t crc;
+void crc_table_bytewise(model_t *model) {
+  unsigned char k;
+  word_t crc;
 
-    k = 0;
-    do {
-        crc = model->xorout;
-        crc = crc_bitwise(model, crc, &k, 1);
-        crc ^= model->xorout;
-        if (model->rev)
-            crc = reverse(crc, model->width);
-        if (model->width < 8 && !model->ref)
-            crc <<= 8 - model->width;
-        model->table_byte[k] = crc;
-    } while (++k);
+  k = 0;
+  do {
+    crc = model->xorout;
+    crc = crc_bitwise(model, crc, &k, 1);
+    crc ^= model->xorout;
+    if (model->rev)
+      crc = reverse(crc, model->width);
+    if (model->width < 8 && !model->ref)
+      crc <<= 8 - model->width;
+    model->table_byte[k] = crc;
+  } while (++k);
 }
 
 /* Equivalent to crc_bitwise(), but use a faster byte-wise table-based
    approach. This assumes that model->table_byte has been initialized using
    crc_table_bytewise(). */
-word_t crc_bytewise(model_t *model, word_t crc,
-                                  unsigned char *buf, size_t len)
-{
-    /* if requested, return the initial CRC */
-    if (buf == NULL)
-        return model->init;
+word_t crc_bytewise(model_t *model, word_t crc, unsigned char *buf,
+                    size_t len) {
+  /* if requested, return the initial CRC */
+  if (buf == NULL)
+    return model->init;
 
-    /* pre-process the CRC */
+  /* pre-process the CRC */
+  crc &= ONES(model->width);
+  crc ^= model->xorout;
+  if (model->rev)
+    crc = reverse(crc, model->width);
+
+  /* process the input data a byte at a time */
+  if (model->ref)
+    while (len--)
+      crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
+  else if (model->width <= 8) {
+    unsigned shift;
+
+    shift = 8 - model->width; /* 0..7 */
+    crc <<= shift;
+    while (len--)
+      crc = model->table_byte[crc ^ *buf++];
+    crc >>= shift;
+  } else {
+    unsigned shift;
+
+    shift = model->width - 8; /* 1..WORDBITS-8 */
+    while (len--)
+      crc = (crc << 8) ^ model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
     crc &= ONES(model->width);
-    crc ^= model->xorout;
-    if (model->rev)
-        crc = reverse(crc, model->width);
+  }
 
-    /* process the input data a byte at a time */
-    if (model->ref)
-        while (len--)
-            crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
-    else if (model->width <= 8) {
-        unsigned shift;
-
-        shift = 8 - model->width;           /* 0..7 */
-        crc <<= shift;
-        while (len--)
-            crc = model->table_byte[crc ^ *buf++];
-        crc >>= shift;
-    }
-    else {
-        unsigned shift;
-
-        shift = model->width - 8;           /* 1..WORDBITS-8 */
-        while (len--)
-            crc = (crc << 8) ^
-                  model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
-        crc &= ONES(model->width);
-    }
-
-    /* post-process and return the CRC */
-    if (model->rev)
-        crc = reverse(crc, model->width);
-    return crc ^ model->xorout;
+  /* post-process and return the CRC */
+  if (model->rev)
+    crc = reverse(crc, model->width);
+  return crc ^ model->xorout;
 }
 
 /* Swap the bytes in a word_t.  This can be replaced by a byte-swap builtin, if
@@ -248,18 +239,17 @@ word_t crc_bytewise(model_t *model, word_t crc,
    speed of swap() is inconsequential however, being used at most twice per
    crc_wordwise() call.  It is only used on little-endian machines if the CRC
    is not reflected, or on big-endian machines if the CRC is reflected. */
-word_t swap(word_t x)
-{
-    word_t y;
-    unsigned n = WORDCHARS - 1;
+word_t swap(word_t x) {
+  word_t y;
+  unsigned n = WORDCHARS - 1;
 
-    y = x & 0xff;
-    while (x >>= 8) {
-        y <<= 8;
-        y |= x & 0xff;
-        n--;
-    }
-    return y << (n << 3);
+  y = x & 0xff;
+  while (x >>= 8) {
+    y <<= 8;
+    y |= x & 0xff;
+    n--;
+  }
+  return y << (n << 3);
 }
 
 /* Fill in the tables for a word-wise CRC calculation.  This also fills in the
@@ -275,264 +265,254 @@ word_t swap(word_t x)
    is the same as table_byte.  In that case, the two could be combined,
    reducing the total size of the tables.  This is also true if model->ref is
    false, the machine is big-endian, and model->width is equal to WORDBITS. */
-void crc_table_wordwise(model_t *model)
-{
-    unsigned n, k, opp, top;
-    word_t crc;
+void crc_table_wordwise(model_t *model) {
+  unsigned n, k, opp, top;
+  word_t crc;
 
-    crc_table_bytewise(model);
-    opp = 1;
-    opp = *((unsigned char *)(&opp)) ^ model->ref;
-    top = model->ref ? 0 : WORDBITS - (model->width > 8 ? model->width : 8);
-    for (k = 0; k < 256; k++) {
-        crc = model->table_byte[k];
-        model->table_word[0][k] = opp ? swap(crc << top) : crc << top;
-        for (n = 1; n < WORDCHARS; n++) {
-            if (model->ref)
-                crc = (crc >> 8) ^ model->table_byte[crc & 0xff];
-            else if (model->width <= 8)
-                crc = model->table_byte[crc];
-            else
-                crc = (crc << 8) ^
-                      model->table_byte[(crc >> (model->width - 8)) & 0xff];
-            model->table_word[n][k] = opp ? swap(crc << top) : crc << top;
-        }
+  crc_table_bytewise(model);
+  opp = 1;
+  opp = *((unsigned char *)(&opp)) ^ model->ref;
+  top = model->ref ? 0 : WORDBITS - (model->width > 8 ? model->width : 8);
+  for (k = 0; k < 256; k++) {
+    crc                     = model->table_byte[k];
+    model->table_word[0][k] = opp ? swap(crc << top) : crc << top;
+    for (n = 1; n < WORDCHARS; n++) {
+      if (model->ref)
+        crc = (crc >> 8) ^ model->table_byte[crc & 0xff];
+      else if (model->width <= 8)
+        crc = model->table_byte[crc];
+      else
+        crc =
+            (crc << 8) ^ model->table_byte[(crc >> (model->width - 8)) & 0xff];
+      model->table_word[n][k] = opp ? swap(crc << top) : crc << top;
     }
+  }
 }
 
 /* Equivalent to crc_bitwise(), but use an even faster word-wise table-based
    approach.  This assumes that model->table_byte and model->table_word have
    been initialized using crc_table_wordwise(). */
-word_t crc_wordwise(model_t *model, word_t crc,
-                                  unsigned char *buf, size_t len)
-{
-    unsigned little, top, shift;
+word_t crc_wordwise(model_t *model, word_t crc, unsigned char *buf,
+                    size_t len) {
+  unsigned little, top, shift;
 
-    /* if requested, return the initial CRC */
-    if (buf == NULL)
-        return model->init;
+  /* if requested, return the initial CRC */
+  if (buf == NULL)
+    return model->init;
 
-    /* prepare common constants */
-    little = 1;
-    little = *((unsigned char *)(&little));
-    top = model->ref ? 0 : WORDBITS - (model->width > 8 ? model->width : 8);
-    shift = model->width <= 8 ? 8 - model->width : model->width - 8;
+  /* prepare common constants */
+  little = 1;
+  little = *((unsigned char *)(&little));
+  top    = model->ref ? 0 : WORDBITS - (model->width > 8 ? model->width : 8);
+  shift  = model->width <= 8 ? 8 - model->width : model->width - 8;
 
-    /* pre-process the CRC */
+  /* pre-process the CRC */
+  crc &= ONES(model->width);
+  crc ^= model->xorout;
+  if (model->rev)
+    crc = reverse(crc, model->width);
+
+  /* process the first few bytes up to a word_t boundary, if any */
+  if (model->ref)
+    while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
+      crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
+      len--;
+    }
+  else if (model->width <= 8) {
+    crc <<= shift;
+    while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
+      crc = model->table_byte[(crc ^ *buf++) & 0xff];
+      len--;
+    }
+  } else
+    while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
+      crc = (crc << 8) ^ model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
+      len--;
+    }
+
+  /* process as many word_t's as are available */
+  if (len >= WORDCHARS) {
+    crc <<= top;
+    if (little) {
+      if (!model->ref)
+        crc = swap(crc);
+      do {
+        crc ^= *(word_t *)buf;
+        crc = model->table_word[WORDCHARS - 1][crc & 0xff] ^
+              model->table_word[WORDCHARS - 2][(crc >> 8)
+#if WORDCHARS > 2
+                                               & 0xff] ^
+              model->table_word[WORDCHARS - 3][(crc >> 16) & 0xff] ^
+              model->table_word[WORDCHARS - 4][(crc >> 24)
+#if WORDCHARS > 4
+                                               & 0xff] ^
+              model->table_word[WORDCHARS - 5][(crc >> 32) & 0xff] ^
+              model->table_word[WORDCHARS - 6][(crc >> 40) & 0xff] ^
+              model->table_word[WORDCHARS - 7][(crc >> 48) & 0xff] ^
+              model->table_word[WORDCHARS - 8][(crc >> 56)
+#if WORDCHARS > 8
+                                               & 0xff] ^
+              model->table_word[WORDCHARS - 9][(crc >> 64) & 0xff] ^
+              model->table_word[WORDCHARS - 10][(crc >> 72) & 0xff] ^
+              model->table_word[WORDCHARS - 11][(crc >> 80) & 0xff] ^
+              model->table_word[WORDCHARS - 12][(crc >> 88) & 0xff] ^
+              model->table_word[WORDCHARS - 13][(crc >> 96) & 0xff] ^
+              model->table_word[WORDCHARS - 14][(crc >> 104) & 0xff] ^
+              model->table_word[WORDCHARS - 15][(crc >> 112) & 0xff] ^
+              model->table_word[WORDCHARS - 16][(crc >> 120)
+#endif
+#endif
+#endif
+        ];
+        buf += WORDCHARS;
+        len -= WORDCHARS;
+      } while (len >= WORDCHARS);
+      if (!model->ref)
+        crc = swap(crc);
+    } else {
+      if (model->ref)
+        crc = swap(crc);
+      do {
+        crc ^= *(word_t *)buf;
+        crc = model->table_word[0][crc & 0xff] ^
+              model->table_word[1][(crc >> 8)
+#if WORDCHARS > 2
+                                   & 0xff] ^
+              model->table_word[2][(crc >> 16) & 0xff] ^
+              model->table_word[3][(crc >> 24)
+#if WORDCHARS > 4
+                                   & 0xff] ^
+              model->table_word[4][(crc >> 32) & 0xff] ^
+              model->table_word[5][(crc >> 40) & 0xff] ^
+              model->table_word[6][(crc >> 48) & 0xff] ^
+              model->table_word[7][(crc >> 56)
+#if WORDCHARS > 8
+                                   & 0xff] ^
+              model->table_word[8][(crc >> 64) & 0xff] ^
+              model->table_word[9][(crc >> 72) & 0xff] ^
+              model->table_word[10][(crc >> 80) & 0xff] ^
+              model->table_word[11][(crc >> 88) & 0xff] ^
+              model->table_word[12][(crc >> 96) & 0xff] ^
+              model->table_word[13][(crc >> 104) & 0xff] ^
+              model->table_word[14][(crc >> 112) & 0xff] ^
+              model->table_word[15][(crc >> 120)
+#endif
+#endif
+#endif
+        ];
+        buf += WORDCHARS;
+        len -= WORDCHARS;
+      } while (len >= WORDCHARS);
+      if (model->ref)
+        crc = swap(crc);
+    }
+    crc >>= top;
+  }
+
+  /* process any remaining bytes after the last word_t */
+  if (model->ref)
+    while (len--)
+      crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
+  else if (model->width <= 8) {
+    while (len--)
+      crc = model->table_byte[(crc ^ *buf++) & 0xff];
+    crc >>= shift;
+  } else {
+    while (len--)
+      crc = (crc << 8) ^ model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
     crc &= ONES(model->width);
-    crc ^= model->xorout;
-    if (model->rev)
-        crc = reverse(crc, model->width);
+  }
 
-    /* process the first few bytes up to a word_t boundary, if any */
-    if (model->ref)
-        while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
-            crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
-            len--;
-        }
-    else if (model->width <= 8) {
-        crc <<= shift;
-        while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
-            crc = model->table_byte[(crc ^ *buf++) & 0xff];
-            len--;
-        }
-    }
-    else
-        while (len && ((ptrdiff_t)buf & (WORDCHARS - 1))) {
-            crc = (crc << 8) ^
-                  model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
-            len--;
-        }
-
-    /* process as many word_t's as are available */
-    if (len >= WORDCHARS) {
-        crc <<= top;
-        if (little) {
-            if (!model->ref)
-                crc = swap(crc);
-            do {
-                crc ^= *(word_t *)buf;
-                crc = model->table_word[WORDCHARS - 1][crc & 0xff]
-                    ^ model->table_word[WORDCHARS - 2][(crc >> 8)
-#if WORDCHARS > 2
-                                                                  & 0xff]
-                    ^ model->table_word[WORDCHARS - 3][(crc >> 16) & 0xff]
-                    ^ model->table_word[WORDCHARS - 4][(crc >> 24)
-#if WORDCHARS > 4
-                                                                   & 0xff]
-                    ^ model->table_word[WORDCHARS - 5][(crc >> 32) & 0xff]
-                    ^ model->table_word[WORDCHARS - 6][(crc >> 40) & 0xff]
-                    ^ model->table_word[WORDCHARS - 7][(crc >> 48) & 0xff]
-                    ^ model->table_word[WORDCHARS - 8][(crc >> 56)
-#if WORDCHARS > 8
-                                                                   & 0xff]
-                    ^ model->table_word[WORDCHARS - 9][(crc >> 64) & 0xff]
-                    ^ model->table_word[WORDCHARS - 10][(crc >> 72) & 0xff]
-                    ^ model->table_word[WORDCHARS - 11][(crc >> 80) & 0xff]
-                    ^ model->table_word[WORDCHARS - 12][(crc >> 88) & 0xff]
-                    ^ model->table_word[WORDCHARS - 13][(crc >> 96) & 0xff]
-                    ^ model->table_word[WORDCHARS - 14][(crc >> 104) & 0xff]
-                    ^ model->table_word[WORDCHARS - 15][(crc >> 112) & 0xff]
-                    ^ model->table_word[WORDCHARS - 16][(crc >> 120)
-#endif
-#endif
-#endif
-                                                                    ];
-                buf += WORDCHARS;
-                len -= WORDCHARS;
-            } while (len >= WORDCHARS);
-            if (!model->ref)
-                crc = swap(crc);
-        }
-        else {
-            if (model->ref)
-                crc = swap(crc);
-            do {
-                crc ^= *(word_t *)buf;
-                crc = model->table_word[0][crc & 0xff]
-                    ^ model->table_word[1][(crc >> 8)
-#if WORDCHARS > 2
-                                                      & 0xff]
-                    ^ model->table_word[2][(crc >> 16) & 0xff]
-                    ^ model->table_word[3][(crc >> 24)
-#if WORDCHARS > 4
-                                                       & 0xff]
-                    ^ model->table_word[4][(crc >> 32) & 0xff]
-                    ^ model->table_word[5][(crc >> 40) & 0xff]
-                    ^ model->table_word[6][(crc >> 48) & 0xff]
-                    ^ model->table_word[7][(crc >> 56)
-#if WORDCHARS > 8
-                                                       & 0xff]
-                    ^ model->table_word[8][(crc >> 64) & 0xff]
-                    ^ model->table_word[9][(crc >> 72) & 0xff]
-                    ^ model->table_word[10][(crc >> 80) & 0xff]
-                    ^ model->table_word[11][(crc >> 88) & 0xff]
-                    ^ model->table_word[12][(crc >> 96) & 0xff]
-                    ^ model->table_word[13][(crc >> 104) & 0xff]
-                    ^ model->table_word[14][(crc >> 112) & 0xff]
-                    ^ model->table_word[15][(crc >> 120)
-#endif
-#endif
-#endif
-                                                        ];
-                buf += WORDCHARS;
-                len -= WORDCHARS;
-            } while (len >= WORDCHARS);
-            if (model->ref)
-                crc = swap(crc);
-        }
-        crc >>= top;
-    }
-
-    /* process any remaining bytes after the last word_t */
-    if (model->ref)
-        while (len--)
-            crc = (crc >> 8) ^ model->table_byte[(crc ^ *buf++) & 0xff];
-    else if (model->width <= 8) {
-        while (len--)
-            crc = model->table_byte[(crc ^ *buf++) & 0xff];
-        crc >>= shift;
-    }
-    else {
-        while (len--)
-            crc = (crc << 8) ^
-                  model->table_byte[((crc >> shift) ^ *buf++) & 0xff];
-        crc &= ONES(model->width);
-    }
-
-    /* post-process and return the CRC */
-    if (model->rev)
-        crc = reverse(crc, model->width);
-    return crc ^ model->xorout;
+  /* post-process and return the CRC */
+  if (model->rev)
+    crc = reverse(crc, model->width);
+  return crc ^ model->xorout;
 }
 
 /* --- Double-wide CRC routines --- */
 
 /* Return the reversal of the low n-bits of hi/lo in hi/lo.
    1 <= n <= WORDBITS*2. */
-void reverse_dbl(word_t *hi, word_t *lo, unsigned n)
-{
-    word_t tmp;
+void reverse_dbl(word_t *hi, word_t *lo, unsigned n) {
+  word_t tmp;
 
-    if (n <= WORDBITS) {
-        *lo = reverse(*lo, n);
-        *hi = 0;
-    }
-    else {
-        tmp = reverse(*lo, WORDBITS);
-        *lo = reverse(*hi, n - WORDBITS);
-        if (n < WORDBITS*2) {
-            *lo |= tmp << (n - WORDBITS);
-            *hi = tmp >> (WORDBITS*2 - n);
-        }
-        else
-            *hi = tmp;
-    }
+  if (n <= WORDBITS) {
+    *lo = reverse(*lo, n);
+    *hi = 0;
+  } else {
+    tmp = reverse(*lo, WORDBITS);
+    *lo = reverse(*hi, n - WORDBITS);
+    if (n < WORDBITS * 2) {
+      *lo |= tmp << (n - WORDBITS);
+      *hi = tmp >> (WORDBITS * 2 - n);
+    } else
+      *hi = tmp;
+  }
 }
 
 /* Shift left a double-word quantity by n bits: a <<= n, 0 <= n < WORDBITS.  ah
    and al must be word_t lvalues.  WORDBITS is the number of bits in a word_t,
    which must be an unsigned integer type. */
-#define SHL(ah, al, n) \
-    do { \
-        if ((n) == 0) \
-            break; \
-        ah <<= n; \
-        ah |= al >> (WORDBITS - (n)); \
-        al <<= n; \
-    } while (0)
+#define SHL(ah, al, n)                                                         \
+  do {                                                                         \
+    if ((n) == 0)                                                              \
+      break;                                                                   \
+    ah <<= n;                                                                  \
+    ah |= al >> (WORDBITS - (n));                                              \
+    al <<= n;                                                                  \
+  } while (0)
 
 /* Shift right a double-word quantity by n bits: a >>= n, 0 <= n < WORDBITS.
    ah and al must be word_t lvalues.  WORDBITS is the number of bits in a
    word_t, which must be an unsigned integer type. */
-#define SHR(ah, al, n) \
-    do { \
-        if ((n) == 0) \
-            break; \
-        al >>= n; \
-        al |= ah << (WORDBITS - (n)); \
-        ah >>= n; \
-    } while (0)
+#define SHR(ah, al, n)                                                         \
+  do {                                                                         \
+    if ((n) == 0)                                                              \
+      break;                                                                   \
+    al >>= n;                                                                  \
+    al |= ah << (WORDBITS - (n));                                              \
+    ah >>= n;                                                                  \
+  } while (0)
 
 /* Process one bit in a big reflected CRC in crc_bitwise_dbl(). */
-#define BIGREF \
-    do { \
-        word_t tmp; \
-        tmp = lo & 1; \
-        lo = (lo >> 1) | (hi << (WORDBITS - 1)); \
-        hi >>= 1; \
-        if (tmp) { \
-            lo ^= poly_lo; \
-            hi ^= poly_hi; \
-        } \
-    } while (0)
+#define BIGREF                                                                 \
+  do {                                                                         \
+    word_t tmp;                                                                \
+    tmp = lo & 1;                                                              \
+    lo  = (lo >> 1) | (hi << (WORDBITS - 1));                                  \
+    hi >>= 1;                                                                  \
+    if (tmp) {                                                                 \
+      lo ^= poly_lo;                                                           \
+      hi ^= poly_hi;                                                           \
+    }                                                                          \
+  } while (0)
 
 /* Process one bit in a non-reflected CRC that has been shifted to put the high
    byte at the bottom of hi in crc_bitwise_dbl(). */
-#define BIGCROSS \
-    do { \
-        word_t tmp; \
-        tmp = hi & 0x80; \
-        hi = (hi << 1) | (lo >> (WORDBITS - 1)); \
-        lo <<= 1; \
-        if (tmp) { \
-            lo ^= poly_lo; \
-            hi ^= poly_hi; \
-        } \
-    } while (0)
+#define BIGCROSS                                                               \
+  do {                                                                         \
+    word_t tmp;                                                                \
+    tmp = hi & 0x80;                                                           \
+    hi  = (hi << 1) | (lo >> (WORDBITS - 1));                                  \
+    lo <<= 1;                                                                  \
+    if (tmp) {                                                                 \
+      lo ^= poly_lo;                                                           \
+      hi ^= poly_hi;                                                           \
+    }                                                                          \
+  } while (0)
 
 /* Process one bit in a big non-reflected CRC in crc_bitwise_dbl(). */
-#define BIGNORM \
-    do { \
-        word_t tmp; \
-        tmp = hi & mask; \
-        hi = (hi << 1) | (lo >> (WORDBITS - 1)); \
-        lo <<= 1; \
-        if (tmp) { \
-            lo ^= poly_lo; \
-            hi ^= poly_hi; \
-        } \
-    } while (0)
+#define BIGNORM                                                                \
+  do {                                                                         \
+    word_t tmp;                                                                \
+    tmp = hi & mask;                                                           \
+    hi  = (hi << 1) | (lo >> (WORDBITS - 1));                                  \
+    lo <<= 1;                                                                  \
+    if (tmp) {                                                                 \
+      lo ^= poly_lo;                                                           \
+      hi ^= poly_hi;                                                           \
+    }                                                                          \
+  } while (0)
 
 /* Similar to crc_bitwise(), but works for CRCs up to twice as long as a
    word_t. This processes long CRCs stored in two word_t values, *crc_hi and
@@ -554,82 +534,97 @@ void reverse_dbl(word_t *hi, word_t *lo, unsigned n)
    The CRC of the sequence is left in hi, lo.
  */
 void crc_bitwise_dbl(model_t *model, word_t *crc_hi, word_t *crc_lo,
-                            unsigned char *buf, size_t len)
-{
-    word_t poly_lo = model->poly;
-    word_t poly_hi = model->poly_hi;
-    word_t lo, hi;
+                     unsigned char *buf, size_t len) {
+  word_t poly_lo = model->poly;
+  word_t poly_hi = model->poly_hi;
+  word_t lo, hi;
 
-    /* use crc_bitwise() for CRCs that fit in a word_t */
-    if (model->width <= WORDBITS) {
-        *crc_lo = crc_bitwise(model, *crc_lo, buf, len);
-        *crc_hi = 0;
-        return;
+  /* use crc_bitwise() for CRCs that fit in a word_t */
+  if (model->width <= WORDBITS) {
+    *crc_lo = crc_bitwise(model, *crc_lo, buf, len);
+    *crc_hi = 0;
+    return;
+  }
+
+  /* if requested, return the initial CRC */
+  if (buf == NULL) {
+    *crc_lo = model->init;
+    *crc_hi = model->init_hi;
+    return;
+  }
+
+  /* pre-process the CRC */
+  lo = *crc_lo ^ model->xorout;
+  hi = *crc_hi ^ model->xorout_hi;
+  hi &= ONES(model->width - WORDBITS);
+  if (model->rev)
+    reverse_dbl(&hi, &lo, model->width);
+
+  /* process the input data a bit at a time */
+  if (model->ref) {
+    while (len--) {
+      lo ^= *buf++;
+      BIGREF;
+      BIGREF;
+      BIGREF;
+      BIGREF;
+      BIGREF;
+      BIGREF;
+      BIGREF;
+      BIGREF;
     }
+  } else if (model->width - WORDBITS <= 8) {
+    unsigned shift;
 
-    /* if requested, return the initial CRC */
-    if (buf == NULL) {
-        *crc_lo = model->init;
-        *crc_hi = model->init_hi;
-        return;
+    shift = 8 - (model->width - WORDBITS); /* 0..7 */
+    SHL(poly_hi, poly_lo, shift);
+    SHL(hi, lo, shift);
+    while (len--) {
+      hi ^= *buf++;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
+      BIGCROSS;
     }
-
-    /* pre-process the CRC */
-    lo = *crc_lo ^ model->xorout;
-    hi = *crc_hi ^ model->xorout_hi;
+    SHR(hi, lo, shift);
     hi &= ONES(model->width - WORDBITS);
-    if (model->rev)
-        reverse_dbl(&hi, &lo, model->width);
+  } else {
+    word_t mask;
+    unsigned shift;
 
-    /* process the input data a bit at a time */
-    if (model->ref) {
-        while (len--) {
-            lo ^= *buf++;
-            BIGREF;  BIGREF;  BIGREF;  BIGREF;
-            BIGREF;  BIGREF;  BIGREF;  BIGREF;
-        }
+    mask  = (word_t)1 << (model->width - WORDBITS - 1);
+    shift = model->width - WORDBITS - 8; /* 1..WORDBITS-8 */
+    while (len--) {
+      hi ^= (word_t)(*buf++) << shift;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
+      BIGNORM;
     }
-    else if (model->width - WORDBITS <= 8) {
-        unsigned shift;
+    hi &= ONES(model->width - WORDBITS);
+  }
 
-        shift = 8 - (model->width - WORDBITS);      /* 0..7 */
-        SHL(poly_hi, poly_lo, shift);
-        SHL(hi, lo, shift);
-        while (len--) {
-            hi ^= *buf++;
-            BIGCROSS;  BIGCROSS;  BIGCROSS;  BIGCROSS;
-            BIGCROSS;  BIGCROSS;  BIGCROSS;  BIGCROSS;
-        }
-        SHR(hi, lo, shift);
-        hi &= ONES(model->width - WORDBITS);
-    }
-    else {
-        word_t mask;
-        unsigned shift;
-
-        mask = (word_t)1 << (model->width - WORDBITS - 1);
-        shift = model->width - WORDBITS - 8;        /* 1..WORDBITS-8 */
-        while (len--) {
-            hi ^= (word_t)(*buf++) << shift;
-            BIGNORM;  BIGNORM;  BIGNORM;  BIGNORM;
-            BIGNORM;  BIGNORM;  BIGNORM;  BIGNORM;
-        }
-        hi &= ONES(model->width - WORDBITS);
-    }
-
-    /* post-process and return the CRC */
-    if (model->rev)
-        reverse_dbl(&hi, &lo, model->width);
-    lo ^= model->xorout;
-    hi ^= model->xorout_hi;
-    *crc_lo = lo;
-    *crc_hi = hi;
+  /* post-process and return the CRC */
+  if (model->rev)
+    reverse_dbl(&hi, &lo, model->width);
+  lo ^= model->xorout;
+  hi ^= model->xorout_hi;
+  *crc_lo = lo;
+  *crc_hi = hi;
 }
 
 /* --- Parameter processing routines --- */
 
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 
 /* Read one variable name and value from a string.  The format is name=value,
    possibly preceded by white space, with the value ended by white space or the
@@ -645,61 +640,59 @@ void crc_bitwise_dbl(model_t *model, word_t *crc_hi, word_t *crc_lo,
    and value.  read_vars() returns 1 on success, 0 on end of string, or -1 if
    there was an error, such as no name, no "=", no value, or no closing quote.
    If -1, *str is not modified, though *next and *value may be modified. */
-int read_var(char **str, char **name, char **value)
-{
-    char *next, *copy;
+int read_var(char **str, char **name, char **value) {
+  char *next, *copy;
 
-    /* skip any leading white space, check for end of string */
-    next = *str;
-    while (isspace(*next))
-        next++;
-    if (*next == 0)
-        return 0;
+  /* skip any leading white space, check for end of string */
+  next = *str;
+  while (isspace(*next))
+    next++;
+  if (*next == 0)
+    return 0;
 
-    /* get name */
-    *name = next;
-    while (*next && !isspace(*next) && *next != '=')
-        next++;
-    if (*next != '=' || next == *name)
-        return -1;
+  /* get name */
+  *name = next;
+  while (*next && !isspace(*next) && *next != '=')
+    next++;
+  if (*next != '=' || next == *name)
+    return -1;
+  *next++ = 0;
+
+  /* get value */
+  if (*next == '"') {
+    /* get quoted value */
+    *value = ++next;
+    next   = strchr(next, '"');
+    if (next == NULL)
+      return -1;
+
+    /* handle embedded quotes */
+    copy = next;
+    while (next[1] == '"') {
+      next++;
+      do {
+        *copy++ = *next++;
+        if (*next == 0)
+          return -1;
+      } while (*next != '"');
+      *copy = 0;
+    }
+  } else {
+    /* get non-quoted value */
+    *value = next;
+    while (*next && !isspace(*next))
+      next++;
+    if (next == *value)
+      return -1;
+  }
+
+  /* skip terminating character if not end of string, terminate value */
+  if (*next)
     *next++ = 0;
 
-    /* get value */
-    if (*next == '"') {
-        /* get quoted value */
-        *value = ++next;
-        next = strchr(next, '"');
-        if (next == NULL)
-            return -1;
-
-        /* handle embedded quotes */
-        copy = next;
-        while (next[1] == '"') {
-            next++;
-            do {
-                *copy++ = *next++;
-                if (*next == 0)
-                    return -1;
-            } while (*next != '"');
-            *copy = 0;
-        }
-    }
-    else {
-        /* get non-quoted value */
-        *value = next;
-        while (*next && !isspace(*next))
-            next++;
-        if (next == *value)
-            return -1;
-    }
-
-    /* skip terminating character if not end of string, terminate value */
-    if (*next)
-        *next++ = 0;
-
-    /* return updated string location */
-    *str = next;
-    return 1;
+  /* return updated string location */
+  *str = next;
+  return 1;
 }
 
 /* Shift left a double-word quantity by n bits: r = a << n, 0 < n < WORDBITS.
@@ -707,29 +700,29 @@ int read_var(char **str, char **name, char **value)
    word_t lvalues.  It is allowed for a to be r, shifting in place.  ah and al
    are each used twice in this macro, so beware of side effects.  WORDBITS is
    the number of bits in a word_t, which must be an unsigned integer type. */
-#define SHLO(rh, rl, ah, al, n) \
-    do { \
-        if ((word_t)(ah) >> (WORDBITS - (n))) \
-            return NULL; \
-        rh = ((word_t)(ah) << (n)) | ((word_t)(al) >> (WORDBITS - (n))); \
-        rl = (word_t)(al) << (n); \
-    } while (0)
+#define SHLO(rh, rl, ah, al, n)                                                \
+  do {                                                                         \
+    if ((word_t)(ah) >> (WORDBITS - (n)))                                      \
+      return NULL;                                                             \
+    rh = ((word_t)(ah) << (n)) | ((word_t)(al) >> (WORDBITS - (n)));           \
+    rl = (word_t)(al) << (n);                                                  \
+  } while (0)
 
 /* Add two double-word quantities: r += a.  Return NULL from the enclosing
    function on overflow.  rh and rl must be word_t lvalues.  Note that rh and
    rl are referenced more than once, so beware of side effects. */
-#define ADDO(rh, rl, ah, al) \
-    do { \
-        word_t t; \
-        t = rh; \
-        rh += (ah); \
-        if (rh < t) \
-            return NULL; \
-        t = rl; \
-        rl += (al); \
-        if (rl < t && ++(rh) == 0) \
-            return NULL; \
-    } while (0)
+#define ADDO(rh, rl, ah, al)                                                   \
+  do {                                                                         \
+    word_t t;                                                                  \
+    t = rh;                                                                    \
+    rh += (ah);                                                                \
+    if (rh < t)                                                                \
+      return NULL;                                                             \
+    t = rl;                                                                    \
+    rl += (al);                                                                \
+    if (rl < t && ++(rh) == 0)                                                 \
+      return NULL;                                                             \
+  } while (0)
 
 /* Convert a string of digits to a double-word unsigned integer, that is, two
    word_t unsigned integers making up a single unsigned integer with twice as
@@ -740,56 +733,55 @@ int read_var(char **str, char **name, char **value)
    valid.  If the provided digits result in an overflow of the double-length
    integer, then NULL is returned.  If NULL is returned, *high and *low are
    unaltered. */
-char *strtobig(char *str, word_t *high, word_t *low)
-{
-    unsigned k;         /* base, then digits */
-    word_t nh, nl;      /* double-length number accumulated */
-    word_t th, tl;      /* temporary double-length number */
+char *strtobig(char *str, word_t *high, word_t *low) {
+  unsigned k;    /* base, then digits */
+  word_t nh, nl; /* double-length number accumulated */
+  word_t th, tl; /* temporary double-length number */
 
-    /* determine base from prefix */
-    k = 10;
-    if (*str == '0') {
-        str++;
-        k = 8;
-        if (*str == 'x' || *str == 'X') {
-            str++;
-            k = 16;
-        }
+  /* determine base from prefix */
+  k = 10;
+  if (*str == '0') {
+    str++;
+    k = 8;
+    if (*str == 'x' || *str == 'X') {
+      str++;
+      k = 16;
     }
+  }
 
-    /* accumulate digits until a non-digit */
-    nh = nl = 0;
-    switch (k) {
-        case 8:
-            while (*str >= '0' && *str <= '7') {
-                k = *str++ - '0';
-                SHLO(nh, nl, nh, nl, 3);
-                nl |= k;
-            }
-            break;
-        case 10:
-            while (*str >= '0' && *str <= '9') {
-                k = *str++ - '0';
-                SHLO(nh, nl, nh, nl, 1);        /* n <<= 1 */
-                SHLO(th, tl, nh, nl, 2);        /* t = n << 2 */
-                ADDO(nh, nl, th, tl);           /* n += t */
-                ADDO(nh, nl, 0, k);             /* n += k */
-            }
-            break;
-        case 16:
-            while ((k = *str >= '0' && *str <= '9' ? *str++ - '0' :
-                        *str >= 'A' && *str <= 'F' ? *str++ - 'A' + 10 :
-                        *str >= 'a' && *str <= 'f' ? *str++ - 'a' + 10 :
-                        16) != 16) {
-                SHLO(nh, nl, nh, nl, 4);
-                nl |= k;
-            }
+  /* accumulate digits until a non-digit */
+  nh = nl = 0;
+  switch (k) {
+  case 8:
+    while (*str >= '0' && *str <= '7') {
+      k = *str++ - '0';
+      SHLO(nh, nl, nh, nl, 3);
+      nl |= k;
     }
+    break;
+  case 10:
+    while (*str >= '0' && *str <= '9') {
+      k = *str++ - '0';
+      SHLO(nh, nl, nh, nl, 1); /* n <<= 1 */
+      SHLO(th, tl, nh, nl, 2); /* t = n << 2 */
+      ADDO(nh, nl, th, tl);    /* n += t */
+      ADDO(nh, nl, 0, k);      /* n += k */
+    }
+    break;
+  case 16:
+    while ((k = *str >= '0' && *str <= '9'   ? *str++ - '0'
+                : *str >= 'A' && *str <= 'F' ? *str++ - 'A' + 10
+                : *str >= 'a' && *str <= 'f' ? *str++ - 'a' + 10
+                                             : 16) != 16) {
+      SHLO(nh, nl, nh, nl, 4);
+      nl |= k;
+    }
+  }
 
-    /* return result and string position after number */
-    *high = nh;
-    *low = nl;
-    return str;
+  /* return result and string position after number */
+  *high = nh;
+  *low  = nl;
+  return str;
 }
 
 /* --- Model input routines --- */
@@ -806,7 +798,7 @@ char *strtobig(char *str, word_t *high, word_t *low)
 #define XOROUT 32
 #define CHECK 64
 #define NAME 128
-#define ALL (WIDTH|POLY|INIT|REFIN|REFOUT|XOROUT|CHECK|NAME)
+#define ALL (WIDTH | POLY | INIT | REFIN | REFOUT | XOROUT | CHECK | NAME)
 
 /* Read, verify, and process a CRC model description from the string str,
    returning the result in *model.  Return 0 on success, 1 on invalid input, or
@@ -849,211 +841,201 @@ char *strtobig(char *str, word_t *high, word_t *low)
 
    Example (from the catalogue linked in the comments):
 
-      width=16 poly=0x1021 init=0x0000 refin=true refout=true xorout=0x0000 check=0x2189 name="KERMIT"
+      width=16 poly=0x1021 init=0x0000 refin=true refout=true xorout=0x0000
+   check=0x2189 name="KERMIT"
 
    The same model maximally abbreviated:
 
       w=16 p=4129 r=t c=8585 n=KERMIT
  */
-int read_model(model_t *model, char *str)
-{
-    int ret;
-    char *name, *value, *end;
-    size_t n, k;
-    unsigned got, bad, rep;
-    char *unk;
-    word_t hi, lo;
-    const char *parm[] = {"width", "poly", "init", "refin", "refout", "xorout",
-                          "check", "name"};
+int read_model(model_t *model, char *str) {
+  int ret;
+  char *name, *value, *end;
+  size_t n, k;
+  unsigned got, bad, rep;
+  char *unk;
+  word_t hi, lo;
+  const char *parm[] = {"width",  "poly",   "init",  "refin",
+                        "refout", "xorout", "check", "name"};
 
-    /* read name=value pairs from line */
-    got = bad = rep = 0;
-    unk = NULL;
-    model->name = NULL;
-    while ((ret = read_var(&str, &name, &value)) == 1) {
-        n = strlen(name);
-        k = strlen(value);
-        if (strncasecmp(name, "width", n) == 0) {
-            if (got & WIDTH) {
-                rep |= WIDTH;
-                continue;
-            }
-            if ((end = strtobig(value, &hi, &lo)) == NULL || *end || hi) {
-                bad |= WIDTH;
-                continue;
-            }
-            model->width = lo;
-            got |= WIDTH;
-        }
-        else if (strncasecmp(name, "poly", n) == 0) {
-            if (got & POLY) {
-                rep |= POLY;
-                continue;
-            }
-            if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
-                bad |= POLY;
-                continue;
-            }
-            model->poly = lo;
-            model->poly_hi = hi;
-            got |= POLY;
-        }
-        else if (strncasecmp(name, "init", n) == 0) {
-            if (got & INIT) {
-                rep |= INIT;
-                continue;
-            }
-            if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
-                bad |= POLY;
-                continue;
-            }
-            model->init = lo;
-            model->init_hi = hi;
-            got |= INIT;
-        }
-        else if (strncasecmp(name, "refin", n) == 0) {
-            if (got & REFIN) {
-                rep |= REFIN;
-                continue;
-            }
-            if (strncasecmp(value, "true", k) &&
-                    strncasecmp(value, "false", k)) {
-                bad |= REFIN;
-                continue;
-            }
-            model->ref = *value == 't' ? 1 : 0;
-            got |= REFIN;
-        }
-        else if (strncasecmp(name, "refout", n < 4 ? 4 : n) == 0) {
-            if (got & REFOUT) {
-                rep |= REFOUT;
-                continue;
-            }
-            if (strncasecmp(value, "true", k) &&
-                    strncasecmp(value, "false", k)) {
-                bad |= REFOUT;
-                continue;
-            }
-            model->rev = *value == 't' ? 1 : 0;
-            got |= REFOUT;
-        }
-        else if (strncasecmp(name, "xorout", n) == 0) {
-            if (got & XOROUT) {
-                rep |= XOROUT;
-                continue;
-            }
-            if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
-                bad |= XOROUT;
-                continue;
-            }
-            model->xorout = lo;
-            model->xorout_hi = hi;
-            got |= XOROUT;
-        }
-        else if (strncasecmp(name, "check", n) == 0) {
-            if (got & CHECK) {
-                rep |= CHECK;
-                continue;
-            }
-            if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
-                bad |= CHECK;
-                continue;
-            }
-            model->check = lo;
-            model->check_hi = hi;
-            got |= CHECK;
-        }
-        else if (strncasecmp(name, "name", n) == 0) {
-            if (got & NAME) {
-                rep |= NAME;
-                continue;
-            }
-            model->name = malloc(strlen(value) + 1);
-            if (model->name == NULL)
-                return 2;
-            strcpy(model->name, value);
-            got |= NAME;
-        }
-        else
-            unk = name;
-    }
+  /* read name=value pairs from line */
+  got = bad = rep = 0;
+  unk             = NULL;
+  model->name     = NULL;
+  while ((ret = read_var(&str, &name, &value)) == 1) {
+    n = strlen(name);
+    k = strlen(value);
+    if (strncasecmp(name, "width", n) == 0) {
+      if (got & WIDTH) {
+        rep |= WIDTH;
+        continue;
+      }
+      if ((end = strtobig(value, &hi, &lo)) == NULL || *end || hi) {
+        bad |= WIDTH;
+        continue;
+      }
+      model->width = lo;
+      got |= WIDTH;
+    } else if (strncasecmp(name, "poly", n) == 0) {
+      if (got & POLY) {
+        rep |= POLY;
+        continue;
+      }
+      if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
+        bad |= POLY;
+        continue;
+      }
+      model->poly    = lo;
+      model->poly_hi = hi;
+      got |= POLY;
+    } else if (strncasecmp(name, "init", n) == 0) {
+      if (got & INIT) {
+        rep |= INIT;
+        continue;
+      }
+      if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
+        bad |= POLY;
+        continue;
+      }
+      model->init    = lo;
+      model->init_hi = hi;
+      got |= INIT;
+    } else if (strncasecmp(name, "refin", n) == 0) {
+      if (got & REFIN) {
+        rep |= REFIN;
+        continue;
+      }
+      if (strncasecmp(value, "true", k) && strncasecmp(value, "false", k)) {
+        bad |= REFIN;
+        continue;
+      }
+      model->ref = *value == 't' ? 1 : 0;
+      got |= REFIN;
+    } else if (strncasecmp(name, "refout", n < 4 ? 4 : n) == 0) {
+      if (got & REFOUT) {
+        rep |= REFOUT;
+        continue;
+      }
+      if (strncasecmp(value, "true", k) && strncasecmp(value, "false", k)) {
+        bad |= REFOUT;
+        continue;
+      }
+      model->rev = *value == 't' ? 1 : 0;
+      got |= REFOUT;
+    } else if (strncasecmp(name, "xorout", n) == 0) {
+      if (got & XOROUT) {
+        rep |= XOROUT;
+        continue;
+      }
+      if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
+        bad |= XOROUT;
+        continue;
+      }
+      model->xorout    = lo;
+      model->xorout_hi = hi;
+      got |= XOROUT;
+    } else if (strncasecmp(name, "check", n) == 0) {
+      if (got & CHECK) {
+        rep |= CHECK;
+        continue;
+      }
+      if ((end = strtobig(value, &hi, &lo)) == NULL || *end) {
+        bad |= CHECK;
+        continue;
+      }
+      model->check    = lo;
+      model->check_hi = hi;
+      got |= CHECK;
+    } else if (strncasecmp(name, "name", n) == 0) {
+      if (got & NAME) {
+        rep |= NAME;
+        continue;
+      }
+      model->name = malloc(strlen(value) + 1);
+      if (model->name == NULL)
+        return 2;
+      strcpy(model->name, value);
+      got |= NAME;
+    } else
+      unk = name;
+  }
 
-    /* provide defaults for some parameters */
-    if ((got & INIT) == 0) {
-        model->init = 0;
-        model->init_hi = 0;
-        got |= INIT;
-    }
-    if ((got & (REFIN|REFOUT)) == REFIN) {
-        model->rev = model->ref;
-        got |= REFOUT;
-    }
-    else if ((got & (REFIN|REFOUT)) == REFOUT) {
-        model->ref = model->rev;
-        got |= REFIN;
-    }
-    if ((got & XOROUT) == 0) {
-        model->xorout = 0;
-        model->xorout_hi = 0;
-        got |= XOROUT;
-    }
+  /* provide defaults for some parameters */
+  if ((got & INIT) == 0) {
+    model->init    = 0;
+    model->init_hi = 0;
+    got |= INIT;
+  }
+  if ((got & (REFIN | REFOUT)) == REFIN) {
+    model->rev = model->ref;
+    got |= REFOUT;
+  } else if ((got & (REFIN | REFOUT)) == REFOUT) {
+    model->ref = model->rev;
+    got |= REFIN;
+  }
+  if ((got & XOROUT) == 0) {
+    model->xorout    = 0;
+    model->xorout_hi = 0;
+    got |= XOROUT;
+  }
 
-    /* check for parameter values out of range */
-    if (got & WIDTH) {
-        if (model->width < 1 || model->width > WORDBITS*2)
-            bad |= WIDTH;
-        else {
-            hi = model->width <= WORDBITS ? 0 :
-                 model->width == WORDBITS*2 ? (word_t)0 - 1 :
-                 ((word_t)1 << (model->width - WORDBITS)) - 1;
-            lo = model->width < WORDBITS ? ((word_t)1 << model->width) - 1 :
-                 (word_t)0 - 1;
-            if ((got & POLY) && (model->poly > lo || model->poly_hi > hi ||
-                                 (model->poly & 1) != 1))
-                bad |= POLY;
-            if (model->init > lo || model->init_hi > hi)
-                bad |= INIT;
-            if (model->xorout > lo || model->xorout_hi > hi)
-                bad |= XOROUT;
-            if ((got & CHECK) && (model->check > lo || model->check_hi > hi))
-                bad |= CHECK;
-        }
-    }
-
-    /* issue error messages for noted problems (this section can be safely
-       removed if error messages are not desired) */
-    if (ret == -1)
-        fprintf(stderr, "bad syntax (not 'parm=value') at: '%s'\n", str);
+  /* check for parameter values out of range */
+  if (got & WIDTH) {
+    if (model->width < 1 || model->width > WORDBITS * 2)
+      bad |= WIDTH;
     else {
-        name = model->name == NULL ? "<no name>" : model->name;
-        if (unk != NULL)
-            fprintf(stderr, "%s: unknown parameter %s\n", name, unk);
-        for (n = rep, k = 0; n; n >>= 1, k++)
-            if (n & 1)
-                fprintf(stderr, "%s: %s repeated\n", name, parm[k]);
-        for (n = bad, k = 0; n; n >>= 1, k++)
-            if (n & 1)
-                fprintf(stderr, "%s: %s out of range\n", name, parm[k]);
-        for (n = (got ^ ALL) & ~bad, k = 0; n; n >>= 1, k++)
-            if (n & 1)
-                fprintf(stderr, "%s: %s missing\n", name, parm[k]);
+      hi = model->width <= WORDBITS ? 0
+           : model->width == WORDBITS * 2
+               ? (word_t)0 - 1
+               : ((word_t)1 << (model->width - WORDBITS)) - 1;
+      lo = model->width < WORDBITS ? ((word_t)1 << model->width) - 1
+                                   : (word_t)0 - 1;
+      if ((got & POLY) &&
+          (model->poly > lo || model->poly_hi > hi || (model->poly & 1) != 1))
+        bad |= POLY;
+      if (model->init > lo || model->init_hi > hi)
+        bad |= INIT;
+      if (model->xorout > lo || model->xorout_hi > hi)
+        bad |= XOROUT;
+      if ((got & CHECK) && (model->check > lo || model->check_hi > hi))
+        bad |= CHECK;
     }
+  }
 
-    /* return error if model not fully specified and valid */
-    if (ret == -1 || unk != NULL || rep || bad || got != ALL)
-        return 1;
+  /* issue error messages for noted problems (this section can be safely
+     removed if error messages are not desired) */
+  if (ret == -1)
+    fprintf(stderr, "bad syntax (not 'parm=value') at: '%s'\n", str);
+  else {
+    name = model->name == NULL ? "<no name>" : model->name;
+    if (unk != NULL)
+      fprintf(stderr, "%s: unknown parameter %s\n", name, unk);
+    for (n = rep, k = 0; n; n >>= 1, k++)
+      if (n & 1)
+        fprintf(stderr, "%s: %s repeated\n", name, parm[k]);
+    for (n = bad, k = 0; n; n >>= 1, k++)
+      if (n & 1)
+        fprintf(stderr, "%s: %s out of range\n", name, parm[k]);
+    for (n = (got ^ ALL) & ~bad, k = 0; n; n >>= 1, k++)
+      if (n & 1)
+        fprintf(stderr, "%s: %s missing\n", name, parm[k]);
+  }
 
-    /* process values for use in crc routines -- note that this reflects the
-       polynomial and init values for ready use in the crc routines if
-       necessary, changes the meaning of init, and replaces refin and refout
-       with the different meanings reflect and reverse (reverse is very
-       rarely used) */
-    if (model->ref)
-        reverse_dbl(&model->poly_hi, &model->poly, model->width);
-    if (model->rev)
-        reverse_dbl(&model->init_hi, &model->init, model->width);
-    model->init ^= model->xorout;
-    model->init_hi ^= model->xorout_hi;
-    model->rev ^= model->ref;
-    return 0;
+  /* return error if model not fully specified and valid */
+  if (ret == -1 || unk != NULL || rep || bad || got != ALL)
+    return 1;
+
+  /* process values for use in crc routines -- note that this reflects the
+     polynomial and init values for ready use in the crc routines if
+     necessary, changes the meaning of init, and replaces refin and refout
+     with the different meanings reflect and reverse (reverse is very
+     rarely used) */
+  if (model->ref)
+    reverse_dbl(&model->poly_hi, &model->poly, model->width);
+  if (model->rev)
+    reverse_dbl(&model->init_hi, &model->init, model->width);
+  model->init ^= model->xorout;
+  model->init_hi ^= model->xorout_hi;
+  model->rev ^= model->ref;
+  return 0;
 }

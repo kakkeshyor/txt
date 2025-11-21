@@ -8,58 +8,55 @@
   Letters are converted to lower case.
 */
 
+#include "cw.h"
+#include "parser.h"
+#include "tfile.h"
+#include "txt.h"
+#include <kak/eprintf.h>
+#include <kak/kcommon.h>
+#include <kak/khash.h>
+#include <kak/klist.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <kak/eprintf.h>
-#include <kak/kcommon.h>
-#include <kak/klist.h>
-#include <kak/khash.h>
-#include "txt.h"
-#include "tfile.h"
-#include "parser.h"
-#include "cw.h"
 
-void usage(char *progname)
-{
-	eprintf("usage: %s [-c] [-n] [-x] <in.txt >out.t\n", progname);
+void usage(char *progname) {
+  eprintf("usage: %s [-c] [-n] [-x] <in.txt >out.t\n", progname);
 }
 
-int main(int argc, char *argv[])
-{
-	FILE   *fplog;
-	TFile  *tfile;
-	Parser *parser;
-	int    c, n, x_min, x_max, q, size, bpack;
-	
-	esetprogname(estrdup(argv[0]));
-	fplog = fopen(strcat(estrdup(argv[0]), "-error.log"), "w");
-	esetstream(fplog);
+int main(int argc, char *argv[]) {
+  FILE *fplog;
+  TFile *tfile;
+  Parser *parser;
+  int c, n, x_min, x_max, q, size, bpack;
 
-	c = n = x_min = x_max = q = bpack = 0;
-	size = MB;
-	
-	for (int i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-c") == 0)
-			c = 1;
-		else if (strcmp(argv[i], "-n") == 0)
-			n = 1;
-		else if (strcmp(argv[i], "-x") == 0) {
-			x_min = 4;
-			x_max = 20;
-		}
-		else {
-			/* process non-optional arguments here*/
-		}	
-	}
+  esetprogname(estrdup(argv[0]));
+  fplog = fopen(strcat(estrdup(argv[0]), "-error.log"), "w");
+  esetstream(fplog);
 
-	parser = newparser('d', cwSMART, c, n, x_min, x_max);	
-	tfile  = parse(parser, stdin);
-	writeTFile(stdout, tfile);
-	fflush(stdout);
-	freeTFile(tfile);
-	
-	fclose(fplog);
-	
-	return 0;
+  c = n = x_min = x_max = q = bpack = 0;
+  size                              = MB;
+
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-c") == 0)
+      c = 1;
+    else if (strcmp(argv[i], "-n") == 0)
+      n = 1;
+    else if (strcmp(argv[i], "-x") == 0) {
+      x_min = 4;
+      x_max = 20;
+    } else {
+      /* process non-optional arguments here*/
+    }
+  }
+
+  parser = newparser('d', cwSMART, c, n, x_min, x_max);
+  tfile  = parse(parser, stdin);
+  writeTFile(stdout, tfile);
+  fflush(stdout);
+  freeTFile(tfile);
+
+  fclose(fplog);
+
+  return 0;
 }
