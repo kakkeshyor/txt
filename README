@@ -1,3 +1,5 @@
+txt manipulates TREC data-sets.
+
 Tokenize the corpus and query:
 
     ./raw2t -x -n -c TRECQUERY <q.txt >q.t
