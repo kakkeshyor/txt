@@ -1,4 +1,4 @@
-txt is a search engine that implements the tf-idf algorithms that work on TREC data-sets to demonstrate retrieval and evaluation in typical Information Retrieval experiments. It tokenizes the corpus and queries converting them into its own format, builds an inverted index out of the corpus, which can then be searched by querying it using the tokenized queries. The search results can then be ranked and evaluated.
+'txt' is a search engine that implements the tf-idf algorithms that work on TREC data-sets to demonstrate retrieval and evaluation in typical Information Retrieval experiments. It tokenizes the corpus and queries converting them into its own format, builds an inverted index out of the corpus, which can then be searched by querying it using the tokenized queries. The search results can then be ranked and evaluated.
 
 Tokenize the corpus and query:
 
